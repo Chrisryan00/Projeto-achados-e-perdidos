@@ -157,4 +157,4 @@ specs/
     contracts/openapi.yaml
 ```
 
-O projeto não foi publicado ainda. A configuração cloud é para demonstração e não representa um serviço público de produção.
+
