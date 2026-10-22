@@ -12,12 +12,12 @@ O site inclui busca e filtros, destaque para anúncios urgentes e um fluxo para 
 
 - Aloisio Guedes
 - Igor Alcantara
-
+- Christian Ryan
 ## Funcionalidades
 
 - Publicar itens perdidos ou encontrados.
 - Anexar uma foto JPG, PNG ou WebP ao anúncio; a imagem é compactada no navegador e armazenada no SQLite local.
-- Adicionar ou trocar a foto dos cartões fictícios e, localmente, do cartão “Mochila preta” de Christian Lopes.
+
 - Exibir o nome informado por quem publicou e um avatar com suas iniciais.
 - Informar categoria, descrição, local, data e contato por e-mail ou telefone.
 - Marcar um anúncio como urgente.
