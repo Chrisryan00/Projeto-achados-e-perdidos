@@ -1,23 +1,23 @@
 # CESMAC Achados & Perdidos
 
-Portal local para conectar pessoas da comunidade CESMAC que perderam ou encontraram objetos. Publique um anúncio, encontre itens no mural e fale diretamente com quem publicou.
+Aplicação web para conectar pessoas da comunidade CESMAC que perderam ou encontraram objetos. A demonstração está publicada no Render: [cesmac-achados-perdidos.onrender.com](https://cesmac-achados-perdidos.onrender.com).
 
 ## Sobre o projeto
 
-O CESMAC Achados & Perdidos é um protótipo acadêmico que organiza anúncios de itens perdidos e encontrados. Cada publicação informa o tipo do anúncio, nome e descrição do item, categoria, local, data e uma forma de contato. Os anúncios ficam em um banco SQLite local.
+O CESMAC Achados & Perdidos é um protótipo acadêmico que organiza anúncios de itens perdidos e encontrados. Cada publicação informa o tipo do anúncio, nome e descrição do item, categoria, local, data e uma forma de contato. O sistema usa SQLite: localmente, o banco fica no computador; na demonstração hospedada, fica em armazenamento temporário do serviço.
 
 O site inclui busca e filtros, destaque para anúncios urgentes e um fluxo para marcar um item como recuperado ou devolvido. Quem publica recebe um código de gerenciamento, usado para marcar o anúncio como resolvido ou removê-lo. O código é salvo neste navegador e também pode ser importado em **Minhas publicações**.
 
 ## Integrantes
 
 - Aloisio Guedes
-- Igor Alcantara
 - Christian Ryan
+- Igor Alcantara
+
 ## Funcionalidades
 
 - Publicar itens perdidos ou encontrados.
-- Anexar uma foto JPG, PNG ou WebP ao anúncio; a imagem é compactada no navegador e armazenada no SQLite local.
-
+- Anexar uma foto JPG, PNG ou WebP ao anúncio; a imagem é compactada no navegador e armazenada junto ao anúncio.
 - Exibir o nome informado por quem publicou e um avatar com suas iniciais.
 - Informar categoria, descrição, local, data e contato por e-mail ou telefone.
 - Marcar um anúncio como urgente.
@@ -52,6 +52,10 @@ Não é necessário instalar pacotes Python externos.
 - Navegador moderno.
 - Para ordenação semântica via Gemini: uma chave opcional; sem ela, as sugestões usam análise local.
 
+### Usar a demonstração online
+
+Acesse [https://cesmac-achados-perdidos.onrender.com](https://cesmac-achados-perdidos.onrender.com). Para verificar a API, abra [`/api/v1/health`](https://cesmac-achados-perdidos.onrender.com/api/v1/health) e [`/openapi.yaml`](https://cesmac-achados-perdidos.onrender.com/openapi.yaml). No plano gratuito, o primeiro acesso pode levar alguns instantes enquanto o serviço inicia.
+
 ### Pelo terminal
 
 Abra o terminal na pasta raiz do projeto e execute:
@@ -69,7 +73,7 @@ $env:GEMINI_API_KEY = "SUA_CHAVE"
 python app/server.py
 ```
 
-Não salve a chave no código, no `main.js`, no README ou no repositório. No Render, configure `GEMINI_API_KEY` como variável secreta do serviço. O modelo padrão é `gemini-3.6-flash` e pode ser alterado pela variável `GEMINI_MODEL`.
+Não salve a chave no código, no `main.js`, no README ou no repositório. No Render, `GEMINI_API_KEY` deve ser configurada como variável secreta do serviço. O modelo padrão é `gemini-3.6-flash` e pode ser alterado pela variável `GEMINI_MODEL`.
 
 ### Pelo Visual Studio Code
 
@@ -98,38 +102,29 @@ Execute a suíte automatizada na raiz do projeto:
 py -3.14 -m unittest discover -s tests -p "test_*.py" -v
 ```
 
-Execução informada pelo grupo em 20/10/2026: **17 testes passaram** (`OK`). Depois disso, foram adicionados quatro testes para busca sem resultados, ordenação, contadores e IDs inexistentes. Uma verificação HTTP manual desses cenários passou, mas a suíte atual de 21 testes ainda precisa ser executada. Todos os testes usam banco temporário.
+Os testes usam banco temporário e cobrem validação de anúncios, API, filtros, fotos, códigos de gerenciamento e persistência. Para executá-los, use o comando acima; o resultado depende da versão atual do código e do Python instalado.
 
 ## Arquitetura
 
 ```mermaid
 flowchart LR
   P[Pessoa da comunidade] --> W[Site HTML, CSS e JavaScript]
-  W -->|HTTP e JSON| API[Servidor local Python]
+  W -->|HTTP e JSON| API[Servidor Python]
   API --> R[Validação e regras do domínio]
-  API --> DB[(SQLite local)]
+  API --> DB[(SQLite local ou temporário no Render)]
   API -->|metadados básicos opcionais| AI[Gemini API]
   W -->|Busca e contato| M[Mural de anúncios]
 ```
 
-Por padrão, o servidor escuta em `127.0.0.1` para uso local. O `render.yaml` prepara uma publicação pública para demonstração acadêmica; ela ainda precisa ser implantada e testada antes de haver uma URL para compartilhar.
+Localmente, o servidor escuta em `127.0.0.1`. Na demonstração online, o Render inicia o servidor na porta configurada pela plataforma.
 
 ## Publicar uma demonstração na internet (Render)
 
-O arquivo `render.yaml` configura o serviço Python para o Render. A publicação ainda não foi feita. O Render precisa obter o código de um repositório Git conectado, de uma URL Git pública ou de uma imagem Docker; esta cópia não tem um repositório Git configurado. Você não precisa usar GitHub especificamente, mas precisa colocar o código em uma fonte que o Render consiga acessar. O Blueprint deste projeto é criado a partir de um repositório Git:
-
-1. Coloque os arquivos do projeto em um repositório Git acessível ao Render (GitHub, GitLab ou outro provedor conectado), sem a pasta `data/` nem bancos SQLite locais. O `.gitignore` já exclui esses dados.
-2. Entre em https://render.com e conecte o provedor Git que contém o repositório.
-3. Escolha **New +** > **Blueprint** e selecione o repositório. O Render lê `render.yaml`; confirme a criação do serviço.
-4. Aguarde o deploy e abra a URL `*.onrender.com` que aparece no painel do serviço. Compartilhe a URL somente depois de verificar a página, `/api/v1/health` e `/openapi.yaml`.
-
-O serviço usa o plano gratuito e SQLite temporário. Os anúncios de demonstração são criados na inicialização, mas anúncios publicados e fotos podem ser apagados quando o serviço reiniciar, for atualizado ou desligar por inatividade. Isso serve para uma apresentação; para conservar dados entre reinícios, será necessário configurar armazenamento persistente ou migrar para um banco gerenciado, possivelmente com custo. O primeiro acesso pode demorar enquanto o serviço gratuito inicia.
-
-Antes de publicar, confira os dados do mural. Os cartões com o selo “WhatsApp real · demo” têm item fictício, mas o contato é real: o botão abre uma conversa com o titular do número. Eles foram incluídos com autorização para demonstração local; não publique o banco em uma hospedagem pública sem nova autorização. O portal não tem contas de usuário nem moderação.
+O serviço está hospedado no Render em [cesmac-achados-perdidos.onrender.com](https://cesmac-achados-perdidos.onrender.com). A configuração está em `render.yaml`. O serviço usa SQLite temporário: anúncios e fotos podem ser apagados quando o serviço reiniciar, for atualizado ou desligar por inatividade. O projeto é uma demonstração acadêmica; não tem contas de usuário nem moderação e não deve ser tratado como serviço público de produção.
 
 ## Dados e privacidade
 
-O SQLite padrão é criado em `%LOCALAPPDATA%/CESMAC-AchadosPerdidos/items.sqlite3` e fica fora do repositório. O seed cria itens fictícios; sete cartões locais usam os contatos autorizados guardados em `data/local-demo-contacts.json`, arquivo privado ignorado pelo Git. Eles recebem o selo “WhatsApp real · demo”; os demais exemplos são resolvidos e não mostram contato. O botão abre uma conversa com o titular do número, mas só envia a mensagem após confirmação no WhatsApp. Publicações da comunidade também exibem os contatos informados por quem publica. A análise Gemini opcional recebe somente metadados básicos de anúncios e nunca nomes, descrições, fotos, contatos ou códigos de gerenciamento. As sugestões são possibilidades e não comprovam que dois anúncios falam do mesmo item. As respostas **Pode ser** e **Não é meu item** ficam salvas apenas no navegador e não treinam o modelo.
+O SQLite local é criado em `%LOCALAPPDATA%/CESMAC-AchadosPerdidos/items.sqlite3`; no Render, o caminho configurado é temporário. Os anúncios de demonstração devem usar dados fictícios. Informações de contato enviadas em uma publicação aparecem para visitantes e podem abrir uma conversa por e-mail ou WhatsApp; publique contatos somente com autorização. A análise Gemini opcional recebe somente metadados básicos de anúncios, sem nomes, descrições, fotos, contatos ou códigos de gerenciamento. As sugestões são possibilidades, não confirmação de que dois anúncios falam do mesmo item. As respostas **Pode ser** e **Não é meu item** ficam salvas apenas no navegador e não treinam o modelo.
 
 ## Estrutura
 
@@ -157,4 +152,4 @@ specs/
     contracts/openapi.yaml
 ```
 
-
+O projeto está publicado no Render para demonstração acadêmica. O armazenamento temporário e a ausência de contas e moderação limitam seu uso; não é um serviço público de produção.
