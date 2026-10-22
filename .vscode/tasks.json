@@ -1,0 +1,29 @@
+﻿{
+    "version":  "2.0.0",
+    "tasks":  [
+                  {
+                      "label":  "Abrir CESMAC no Chrome",
+                      "type":  "shell",
+                      "command":  "$url = \u0027http://127.0.0.1:8000\u0027; $port = 8000; $python = (Get-Command py.exe -ErrorAction SilentlyContinue).Source; $pythonPrefix = @(\u0027-3\u0027); if (-not $python) { $python = (Get-Command python.exe -ErrorAction SilentlyContinue).Source; $pythonPrefix = @() } $ready = $false; foreach ($candidate in 8000,8001) { $candidateUrl = \u0027http://127.0.0.1:\u0027 + $candidate; $healthy = $false; try { $health = Invoke-RestMethod ($candidateUrl + \u0027/api/v1/health\u0027) -TimeoutSec 2; $contract = Invoke-WebRequest ($candidateUrl + \u0027/openapi.yaml\u0027) -TimeoutSec 2 -UseBasicParsing; $healthy = ($health.status -eq \u0027ok\u0027 -and $contract.StatusCode -eq 200 -and $contract.Content -match \u0027openapi: 3.0.3\u0027) } catch {}; if ($healthy) { $port = $candidate; $url = $candidateUrl; $ready = $true; break }; $listener = Get-NetTCPConnection -LocalPort $candidate -State Listen -ErrorAction SilentlyContinue; if (-not $listener) { $port = $candidate; $url = $candidateUrl; break } }; if (-not $python) { throw \u0027Python não encontrado. Instale o Python e reabra o VS Code.\u0027 }; if (-not $ready) { $stdout = Join-Path $env:TEMP \u0027cesmac-achados-server.log\u0027; $stderr = Join-Path $env:TEMP \u0027cesmac-achados-server-error.log\u0027; Start-Process -FilePath $python -ArgumentList ($pythonPrefix + @(\u0027app/server.py\u0027,\u0027--port\u0027,[string]$port)) -WorkingDirectory \u0027${workspaceFolder}\u0027 -WindowStyle Hidden -RedirectStandardOutput $stdout -RedirectStandardError $stderr; for ($i = 0; $i -lt 20; $i++) { Start-Sleep -Seconds 1; try { $health = Invoke-RestMethod ($url + \u0027/api/v1/health\u0027) -TimeoutSec 2; $contract = Invoke-WebRequest ($url + \u0027/openapi.yaml\u0027) -TimeoutSec 2 -UseBasicParsing; if ($health.status -eq \u0027ok\u0027 -and $contract.StatusCode -eq 200 -and $contract.Content -match \u0027openapi: 3.0.3\u0027) { $ready = $true; break } } catch {} }; if (-not $ready) { $details = if (Test-Path $stderr) { Get-Content $stderr -Raw } else { \u0027Sem detalhes no log.\u0027 }; throw (\u0027O servidor não iniciou corretamente na porta \u0027 + $port + \u0027. Log: \u0027 + $details) } }; $chromePaths = @((Join-Path $env:ProgramFiles \u0027Google\\Chrome\\Application\\chrome.exe\u0027), (Join-Path ${env:ProgramFiles(x86)} \u0027Google\\Chrome\\Application\\chrome.exe\u0027), (Join-Path $env:LOCALAPPDATA \u0027Google\\Chrome\\Application\\chrome.exe\u0027)); $chrome = $chromePaths | Where-Object { Test-Path $_ } | Select-Object -First 1; if (-not $chrome) { throw \u0027Não encontrei o Google Chrome instalado.\u0027 }; Start-Process -FilePath $chrome -ArgumentList $url; Write-Host (\u0027CESMAC aberto no Chrome em \u0027 + $url + \u0027. Servidor ativo em segundo plano.\u0027)",
+                      "options":  {
+                                      "cwd":  "${workspaceFolder}",
+                                      "shell":  {
+                                                    "executable":  "powershell.exe",
+                                                    "args":  [
+                                                                 "-NoProfile",
+                                                                 "-ExecutionPolicy",
+                                                                 "Bypass",
+                                                                 "-Command"
+                                                             ]
+                                                }
+                                  },
+                      "group":  {
+                                    "kind":  "build",
+                                    "isDefault":  true
+                                },
+                      "problemMatcher":  [
+
+                                         ]
+                  }
+              ]
+}

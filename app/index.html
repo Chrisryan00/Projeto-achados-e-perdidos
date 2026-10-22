@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f6f7f3">
+  <meta name="description" content="Portal de achados e perdidos da comunidade CESMAC.">
+  <title>Achados & Perdidos | CESMAC</title>
+  <link rel="stylesheet" href="/styles.css?v=7">
+  <script src="/main.js?v=7" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="CESMAC Achados e Perdidos">
+      <span class="brand-mark" aria-hidden="true">C</span>
+      <span><strong>CESMAC</strong><small>ACHADOS & PERDIDOS</small></span>
+    </a>
+    <nav class="top-nav" aria-label="Navegação principal">
+      <a href="#anuncios">Explorar anúncios</a>
+      <button class="my-posts-link" id="my-posts-button" type="button">Minhas publicações <span id="my-posts-count">0</span></button>
+      <button class="button button-dark top-report" id="open-report" type="button"><span aria-hidden="true">＋</span> Publicar item</button>
+    </nav>
+    <button class="mobile-menu" id="mobile-report" type="button" aria-label="Publicar item">＋</button>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow"><span class="live-dot"></span> COMUNIDADE CESMAC</p>
+        <h1>Encontrou ou perdeu<br><em>algo pelo caminho?</em></h1>
+        <p class="hero-intro">A gente ajuda esse encontro a acontecer. Consulte os anúncios da comunidade ou publique um item em poucos passos.</p>
+        <div class="hero-actions">
+          <button class="button button-dark button-large" id="hero-report" type="button">＋ Publicar um item</button>
+          <a class="text-link" href="#anuncios">Ver anúncios <span aria-hidden="true">↓</span></a>
+        </div>
+        <div class="trust-note"><span class="shield" aria-hidden="true">✓</span> Contato direto entre estudantes e comunidade</div>
+      </div>
+      <div class="hero-art" aria-hidden="true">
+        <div class="orbit orbit-one"></div><div class="orbit orbit-two"></div>
+        <div class="art-card card-back"><span class="art-glyph">✳</span><span>ALGUÉM ESTÁ PROCURANDO</span></div>
+        <div class="art-card card-front"><span class="key-illustration">⌕</span><strong>Seu próximo<br>encontro começa aqui.</strong><span class="art-caption">CESMAC · MACEIÓ</span></div>
+        <span class="spark spark-one">✦</span><span class="spark spark-two">✳</span>
+      </div>
+    </section>
+
+    <section class="stats-wrap" aria-label="Resumo de anúncios">
+      <div class="stat"><span class="stat-icon stat-lost">⌕</span><div><strong id="stat-lost">—</strong><span>itens perdidos</span></div></div>
+      <div class="stat"><span class="stat-icon stat-found">✦</span><div><strong id="stat-found">—</strong><span>itens encontrados</span></div></div>
+      <div class="stat"><span class="stat-icon stat-resolved">✓</span><div><strong id="stat-resolved">—</strong><span>histórias resolvidas</span></div></div>
+      <div class="stat stat-message"><strong>Um gesto simples<br>pode mudar o dia.</strong><span>Ajude a devolver algo importante.</span></div>
+    </section>
+
+    <section class="listing-section" id="anuncios">
+      <div class="section-topline"><p class="eyebrow">MURAL DA COMUNIDADE</p><span class="updated-label"><span class="live-dot"></span> Atualizado agora</span></div>
+      <div class="section-heading"><div><h2>Vamos encontrar?</h2><p>Busque nos anúncios e veja sugestões de itens parecidos.</p></div>
+        <button class="button button-outline desktop-report" id="section-report" type="button">＋ Publicar item</button>
+      </div>
+      <p class="matching-privacy">As sugestões são aproximadas e não confirmam a identidade do objeto. Quando Gemini está configurado, ele recebe somente título, tipo, categoria, local e data dos anúncios; sem essa configuração, a análise ocorre localmente.</p>
+
+      <div class="filters" role="search">
+        <label class="search-box"><span aria-hidden="true">⌕</span><input id="search-input" type="search" placeholder="Busque por item, local ou palavra-chave" autocomplete="off"><kbd>⌘ K</kbd></label>
+        <label class="select-wrap"><span class="sr-only">Categoria</span><select id="category-filter"><option value="">Todas as categorias</option><option>Acessórios</option><option>Documentos</option><option>Eletrônicos</option><option>Material de estudo</option><option>Roupas e acessórios</option><option>Chaves</option><option>Outros</option></select></label>
+        <div class="filter-tabs" aria-label="Tipo de anúncio"><button class="filter-tab active" data-kind="" type="button">Tudo</button><button class="filter-tab" data-kind="lost" type="button">Perdidos</button><button class="filter-tab" data-kind="found" type="button">Encontrados</button></div>
+      </div>
+
+      <div class="status-tabs" aria-label="Situação dos anúncios"><span>Ver:</span><button class="status-tab active" data-status="all" type="button">Todos</button><button class="status-tab" data-status="open" type="button">Em aberto</button><button class="status-tab status-resolved" data-status="resolved" type="button">✓ Resolvidos</button></div>
+
+      <div class="results-meta"><span id="results-count">Carregando anúncios…</span><label class="sort-select">Ordenar por <select id="sort-filter"><option value="recent">Mais recentes</option><option value="urgent">Urgentes primeiro</option></select></label></div>
+      <div class="source-filter-row"><label for="source-filter">Mostrar <select id="source-filter"><option value="all">Todos os anúncios</option><option value="community">Publicações da comunidade</option><option value="examples">Exemplos fictícios</option></select></label><span>“WhatsApp real · demo” indica item inventado com contato autorizado; o botão envia mensagem ao número real do cartão.</span></div>
+      <div id="items-grid" class="items-grid" aria-live="polite"></div>
+      <section id="resolved-section" class="resolved-section" aria-labelledby="resolved-heading" hidden>
+        <div class="resolved-heading"><span class="resolved-heading-icon" aria-hidden="true">✓</span><div><p class="eyebrow">FINAL FELIZ</p><h3 id="resolved-heading">Itens resolvidos</h3><p>Histórias que já tiveram um reencontro.</p></div></div>
+        <div id="resolved-grid" class="items-grid resolved-grid" aria-live="polite"></div>
+      </section>
+      <div id="empty-state" class="empty-state" hidden><span class="empty-icon">⌕</span><h3>Nenhum anúncio por aqui</h3><p>Tente mudar os filtros ou publique o primeiro anúncio dessa busca.</p><button class="button button-dark" id="empty-report" type="button">Publicar um item</button></div>
+      <p id="page-message" class="page-message" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="how-it-works">
+      <div><p class="eyebrow">RÁPIDO E SIMPLES</p><h2>Três passos para<br>um bom reencontro.</h2></div>
+      <div class="how-step"><span>01</span><div><strong>Procure no mural</strong><p>Use a busca e os filtros para localizar um anúncio.</p></div></div>
+      <div class="how-step"><span>02</span><div><strong>Fale com quem publicou</strong><p>O contato fica disponível no próprio anúncio.</p></div></div>
+      <div class="how-step"><span>03</span><div><strong>Resolva e atualize</strong><p>Quem publicou pode marcar o item como devolvido ou recuperado.</p></div></div>
+    </section>
+  </main>
+
+  <footer class="footer"><a class="brand footer-brand" href="/"><span class="brand-mark">C</span><span><strong>CESMAC</strong><small>ACHADOS & PERDIDOS</small></span></a><span>Feito para aproximar pessoas. <span class="heart">♥</span></span><span>Protótipo acadêmico · Comunidade CESMAC</span></footer>
+
+  <dialog id="report-dialog" class="dialog">
+    <form id="report-form" class="report-form">
+      <div class="dialog-heading"><div><p class="eyebrow">MURAL DA COMUNIDADE</p><h2 id="dialog-title">Publicar um item</h2></div><button class="icon-button" id="close-dialog" type="button" aria-label="Fechar">×</button></div>
+      <p class="dialog-intro">Preencha os detalhes para ajudar a pessoa certa a encontrar seu anúncio.</p>
+      <fieldset class="kind-picker"><legend>O que aconteceu?</legend><label class="kind-lost"><input type="radio" name="kind" value="lost" checked><span><b>⌕</b><strong>Perdido</strong><small>Estou procurando algo</small></span></label><label class="kind-found"><input type="radio" name="kind" value="found"><span><b>✦</b><strong>Encontrado</strong><small>Quero encontrar o dono</small></span></label></fieldset>
+      <div class="form-grid">
+        <label class="field field-full">Nome do item<input name="title" maxlength="100" required placeholder="Ex.: Garrafa térmica azul"></label>
+        <label class="field">Categoria<select name="category" required><option value="">Selecione</option><option>Acessórios</option><option>Documentos</option><option>Eletrônicos</option><option>Material de estudo</option><option>Roupas e acessórios</option><option>Chaves</option><option>Outros</option></select></label>
+        <label class="field">Data em que perdeu/encontrou<input name="eventDate" type="date" required></label>
+        <label class="field field-full">Onde foi perdido/encontrado?<input name="location" maxlength="120" required placeholder="Ex.: Biblioteca, bloco B"></label>
+        <label class="field field-full">Detalhes<textarea name="description" maxlength="1500" rows="3" required placeholder="Cor, marca, características ou outras informações úteis"></textarea><small>Não publique senhas, números de documentos ou informações muito pessoais.</small></label>
+        <label class="field field-full">Foto do item <span class="optional">opcional · JPG, PNG ou WebP</span><input id="photo-input" name="photo" type="file" accept="image/jpeg,image/png,image/webp"><small>A imagem é compactada e salva junto ao anúncio.</small></label>
+        <img id="photo-preview" class="photo-preview" alt="Prévia da foto selecionada" hidden>
+        <div class="field field-full contact-heading"><span>Como podem falar com você?</span><small>O contato ficará visível neste anúncio.</small></div>
+        <label class="field">Seu nome<input name="contactName" maxlength="80" required placeholder="Como gostaria de ser chamado"></label>
+        <label class="field">E-mail<input name="contactEmail" type="email" maxlength="254" placeholder="seuemail@dominio.com"></label>
+        <label class="field field-full">Telefone ou WhatsApp <span class="optional">opcional</span><input name="contactPhone" type="tel" maxlength="30" placeholder="(82) 99999-9999"></label>
+        <label class="urgent-check field-full"><input type="checkbox" name="urgent"><span><strong>Marcar como urgente</strong><small>Use quando o item for importante e precisar de atenção rápida.</small></span></label>
+      </div>
+      <p class="privacy-hint">Ao publicar, seus dados de contato ficam visíveis para quem acessar o mural.</p>
+      <p id="form-error" class="form-error" role="alert"></p>
+      <div class="dialog-actions"><button class="button button-quiet" id="cancel-dialog" type="button">Cancelar</button><button class="button button-dark" id="submit-report" type="submit">Publicar anúncio <span aria-hidden="true">→</span></button></div>
+    </form>
+  </dialog>
+
+  <dialog id="success-dialog" class="dialog success-dialog">
+    <div class="success-content"><span class="success-mark">✓</span><p class="eyebrow">ANÚNCIO NO MURAL</p><h2>Pronto. Já está publicado!</h2><p>Guarde o código para marcar o item como resolvido ou remover o anúncio. Você pode importar o código em <strong>Minhas publicações</strong> em outro navegador.</p><div class="management-code"><small>CÓDIGO DE GERENCIAMENTO</small><code id="management-code"></code><button id="copy-code" type="button">Copiar código</button></div><section id="post-match-results" class="post-match-results" hidden></section><p class="privacy-hint">Esse código é mostrado uma vez e dá controle sobre o anúncio. Não compartilhe com outras pessoas.</p><button class="button button-dark success-close" id="success-close" type="button">Voltar ao mural</button></div>
+  </dialog>
+</body>
+</html>

@@ -1,0 +1,289 @@
+openapi: 3.0.3
+info:
+  title: CESMAC Achados & Perdidos API
+  version: 1.0.0
+  description: API local para publicar, consultar e gerenciar anúncios de itens perdidos e encontrados.
+servers:
+  - url: /
+    description: Mesmo endereço da aplicação, em ambiente local ou na demonstração hospedada
+paths:
+  /api/v1/health:
+    get:
+      summary: Verificar disponibilidade
+      responses:
+        '200':
+          description: API ativa
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+  /api/v1/items:
+    get:
+      summary: Listar e filtrar anúncios
+      parameters:
+        - in: query
+          name: q
+          schema: { type: string, maxLength: 100 }
+          description: Busca por título, descrição, local ou categoria.
+        - in: query
+          name: kind
+          schema: { type: string, enum: [lost, found] }
+          description: Tipo do anúncio; omita para não filtrar por tipo.
+        - in: query
+          name: category
+          schema:
+            type: string
+            enum: [Acessórios, Documentos, Eletrônicos, Material de estudo, Roupas e acessórios, Chaves, Outros]
+          description: Categoria do anúncio; omita para não filtrar por categoria.
+        - in: query
+          name: status
+          schema: { type: string, enum: [open, resolved, all], default: open }
+      responses:
+        '200':
+          description: Anúncios e contadores do mural
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, stats]
+                properties:
+                  items:
+                    type: array
+                    maxItems: 200
+                    items: { $ref: '#/components/schemas/Item' }
+                  stats: { $ref: '#/components/schemas/Stats' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+    post:
+      summary: Publicar anúncio
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NewItem' }
+      responses:
+        '201':
+          description: Anúncio criado; o código de gerenciamento é retornado somente nesta resposta.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [item, managementToken]
+                properties:
+                  item: { $ref: '#/components/schemas/Item' }
+                  managementToken: { type: string, description: Token secreto; o cliente o apresenta junto ao ID para gerenciar o anúncio. }
+        '413': { $ref: '#/components/responses/TooLarge' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/items/{id}/matches:
+    post:
+      summary: Sugerir anúncios de tipo oposto que podem corresponder
+      description: Compara um anúncio aberto com até 200 anúncios abertos do tipo oposto. Usa Gemini para ordenar candidatos quando configurado; sem Gemini, aplica pontuação local por título, categoria, local, descrição e proximidade da data. Contatos e códigos de gerenciamento nunca são enviados ao provedor.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Até três possíveis correspondências; sugestões não confirmam identidade do objeto.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [matches, method]
+                properties:
+                  method: { type: string, enum: [gemini, similaridade] }
+                  matches:
+                    type: array
+                    maxItems: 3
+                    items:
+                      type: object
+                      required: [id, kind, title, category, location, eventDate, score, reasons]
+                      properties:
+                        id: { type: integer }
+                        kind: { type: string, enum: [lost, found] }
+                        title: { type: string }
+                        category: { type: string }
+                        location: { type: string }
+                        eventDate: { type: string, format: date }
+                        demo: { type: boolean }
+                        score: { type: integer, minimum: 0, maximum: 100 }
+                        reasons:
+                          type: array
+                          items: { type: string }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { description: Limite de oito análises por minuto excedido }
+  /api/v1/items/{id}/photo:
+    get:
+      summary: Obter a foto de um anúncio
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        '200':
+          description: Imagem JPEG, PNG ou WebP do item
+          content:
+            image/jpeg: { schema: { type: string, format: binary } }
+            image/png: { schema: { type: string, format: binary } }
+            image/webp: { schema: { type: string, format: binary } }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      summary: Salvar foto em cartão autorizado na execução local
+      description: Disponível somente para conexões locais, cartões fictícios e para o cartão restaurado Mochila preta de Christian Lopes.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, minimum: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [photo]
+              properties:
+                photo: { type: string, description: Data URL JPEG, PNG ou WebP compactada; até 700.000 caracteres. }
+      responses:
+        '200':
+          description: Foto salva
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  photoUrl: { type: string }
+        '403': { description: Conexão não local ou cartão sem edição de foto autorizada }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '413': { description: Requisição acima de 1 MB }
+        '422': { description: Imagem inválida ou ausente }
+  /api/v1/items/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer, minimum: 1 }
+    patch:
+      summary: Marcar anúncio como resolvido
+      description: Anúncio perdido usa recovered; anúncio encontrado usa returned.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [managementToken, status]
+              properties:
+                managementToken: { type: string }
+                status: { type: string, enum: [recovered, returned] }
+      responses:
+        '200':
+          description: Anúncio atualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  item: { $ref: '#/components/schemas/Item' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+    delete:
+      summary: Remover anúncio
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [managementToken]
+              properties:
+                managementToken: { type: string }
+      responses:
+        '204': { description: Anúncio removido }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /openapi.yaml:
+    get:
+      summary: Obter contrato desta API
+      responses:
+        '200': { description: Documento OpenAPI em YAML }
+components:
+  schemas:
+    NewItem:
+      type: object
+      required: [kind, title, description, category, location, eventDate, contactName]
+      properties:
+        kind: { type: string, enum: [lost, found] }
+        title: { type: string, minLength: 1, maxLength: 100 }
+        description: { type: string, minLength: 1, maxLength: 1500 }
+        category:
+          type: string
+          enum: [Acessórios, Documentos, Eletrônicos, Material de estudo, Roupas e acessórios, Chaves, Outros]
+        location: { type: string, minLength: 1, maxLength: 120 }
+        eventDate: { type: string, format: date, description: Data não pode ser futura. }
+        contactName: { type: string, minLength: 1, maxLength: 80 }
+        contactEmail: { type: string, format: email, maxLength: 254 }
+        contactPhone: { type: string, maxLength: 30 }
+        urgent: { type: boolean, default: false }
+        photo:
+          type: string
+          maxLength: 700000
+          pattern: '^data:image/(jpeg|png|webp);base64,'
+          description: Foto opcional compactada pelo navegador.
+      description: É necessário informar contactEmail ou contactPhone.
+    Item:
+      allOf:
+        - $ref: '#/components/schemas/NewItem'
+        - type: object
+          required: [id, status, createdAt, updatedAt]
+          properties:
+            id: { type: integer }
+            status: { type: string, enum: [open, resolved] }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
+            photoUrl: { type: string, description: Rota local da foto; vazio quando o anúncio não tem imagem. }
+    Stats:
+      type: object
+      required: [total, lost, found, resolved]
+      properties:
+        total: { type: integer }
+        lost: { type: integer, description: Itens perdidos em aberto. }
+        found: { type: integer, description: Itens encontrados em aberto. }
+        resolved: { type: integer }
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            message: { type: string }
+  responses:
+    BadRequest:
+      description: Filtro inválido
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    ValidationError:
+      description: Dados inválidos
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    TooLarge:
+      description: Corpo maior que 1 MB
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Forbidden:
+      description: Código de gerenciamento incorreto
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: Anúncio não encontrado
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }

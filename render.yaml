@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: cesmac-achados-perdidos
+    runtime: python
+    plan: free
+    buildCommand: python --version
+    startCommand: python app/server.py --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.5
+      - key: LOST_FOUND_DB
+        value: /tmp/cesmac-achados-perdidos.sqlite3
+      - key: GEMINI_MODEL
+        value: gemini-3.6-flash
+      - key: GEMINI_API_KEY
+        sync: false
