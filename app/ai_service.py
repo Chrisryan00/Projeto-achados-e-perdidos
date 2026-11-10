@@ -150,7 +150,7 @@ def generate_assistance(mode, text, photo, candidates, model):
             raise AIUnavailable("O limite de uso da IA foi atingido. Aguarde e tente novamente ou use a busca tradicional.") from None
         if error.code == 400:
             raise AIUnavailable("O provedor de IA rejeitou o formato desta análise. Tente um relato mais curto ou use o modo de rascunho.") from None
-        raise AIUnavailable("A IA não conseguiu responder. O responsável deve verificar a chave e o modelo configurados no servidor.") from None
+        raise AIUnavailable(f"A IA não conseguiu responder (HTTP {error.code}). O responsável deve verificar a chave e o modelo configurados no servidor.") from None
     except (URLError, OSError, TimeoutError):
         raise AIUnavailable("A IA está temporariamente indisponível. Tente novamente em instantes.") from None
     except (KeyError, IndexError, TypeError, ValueError):
