@@ -6,9 +6,9 @@
   <meta name="theme-color" content="#f6f7f3">
   <meta name="description" content="Portal de achados e perdidos da comunidade CESMAC.">
   <title>Achados & Perdidos | CESMAC</title>
-  <link rel="stylesheet" href="/styles.css?v=8">
-  <script src="/main.js?v=8" defer></script>
-  <script src="/assistant.js?v=8" defer></script>
+  <link rel="stylesheet" href="/styles.css?v=9">
+  <script src="/main.js?v=9" defer></script>
+  <script src="/assistant.js?v=9" defer></script>
 </head>
 <body>
   <header class="topbar">
@@ -53,19 +53,22 @@
     </section>
 
     <section class="assistant-section" id="assistente" aria-labelledby="assistant-title">
-      <div class="assistant-intro"><p class="eyebrow">UMA AJUDA NO REENCONTRO</p><h2 id="assistant-title">Você conta.<br>O assistente conecta.</h2><p>Descreva do seu jeito. A IA interpreta o relato e procura nos anúncios em aberto ou prepara um rascunho para você revisar.</p><span id="ai-status" class="ai-status" role="status">Verificando configuração da IA…</span><div class="assistant-features"><span>↗ Busca por significado</span><span>◎ Leitura de foto para rascunhos</span><span>✓ Você decide o que publicar</span></div></div>
+      <div class="assistant-intro"><p class="eyebrow">RADAR DE REENCONTROS · CESMAC</p><h2 id="assistant-title">Uma pista vira<br>um próximo passo.</h2><p>Descreva o objeto ou envie uma foto. O Radar procura no mural, explica o que combina e ajuda você a conferir os detalhes antes de combinar a devolução.</p><span id="ai-status" class="ai-status" role="status">Verificando configuração da IA…</span><div class="assistant-features"><span>01 · Encontre pistas no mural</span><span>02 · Entenda semelhanças e diferenças</span><span>03 · Confira com perguntas seguras</span></div><div class="radar-promise"><strong>Uma sugestão explicada.</strong><p>Sem porcentagens de certeza: você vê as pistas, as dúvidas e o que fazer a seguir.</p></div></div>
       <div class="assistant-workspace">
         <form id="assistant-form">
           <div class="assistant-modes" aria-label="O que você quer fazer?"><label><input type="radio" name="mode" value="search" checked><span>⌕ Encontrar um item</span></label><label><input type="radio" name="mode" value="draft"><span>＋ Preparar anúncio</span></label></div>
+          <div id="radar-search-options" class="radar-search-options"><label class="field">Como o Radar pode ajudar?<select id="radar-looking-for"><option value="found">Perdi algo · procurar encontrados</option><option value="lost">Encontrei algo · procurar o dono</option></select></label><label class="radar-demo-option"><input id="radar-include-examples" type="checkbox"> Incluir exemplos fictícios para testar</label></div>
           <label class="field" for="assistant-text">O que aconteceu?</label><textarea id="assistant-text" name="text" minlength="5" maxlength="1500" rows="4" required placeholder="Perdi uma garrafa de metal azul perto da biblioteca. Alguém encontrou algo parecido?"></textarea>
           <div class="assistant-examples"><button type="button" data-example="Perdi um fone de ouvido preto na biblioteca. Há algum encontrado?">Fone na biblioteca</button><button type="button" data-example="Encontrei um molho de chaves com chaveiro azul. Quero preparar um anúncio para encontrar o dono." data-mode="draft">Encontrei umas chaves</button></div>
-          <label id="assistant-photo-field" class="field assistant-photo" hidden>Foto para ajudar a descrever <span class="optional">opcional</span><input id="assistant-photo" type="file" accept="image/jpeg,image/png,image/webp"><small>Evite fotos com documentos, rostos ou dados pessoais.</small></label>
+          <label id="assistant-photo-field" class="field assistant-photo">Uma foto também pode ser uma pista <span class="optional">opcional</span><input id="assistant-photo" type="file" accept="image/jpeg,image/png,image/webp"><small>A IA extrai características da sua foto e procura nos textos do mural. Não compara fotos dos anúncios. Evite documentos e dados pessoais.</small></label>
           <label class="assistant-consent"><input id="assistant-consent" type="checkbox" required><span>Autorizo enviar este texto e a foto selecionada ao Gemini para esta análise. Os contatos do mural não são enviados.</span></label>
           <div class="assistant-submit"><small>Resultados são sugestões. Confira os detalhes antes de combinar a devolução.</small><button id="assistant-submit" class="button button-dark" type="submit">Analisar com IA ✦</button></div>
         </form>
         <div id="assistant-results" class="assistant-results" aria-live="polite" aria-busy="false" hidden></div>
       </div>
     </section>
+
+    <section id="search-notebook" class="search-notebook" aria-labelledby="notebook-title" hidden><div class="notebook-heading"><div><p class="eyebrow">SUA BUSCA CONTINUA AQUI</p><h2 id="notebook-title">Meu plano de reencontro</h2><p id="notebook-summary"></p></div><button id="resume-radar" class="button button-outline" type="button">Consultar o Radar novamente ↗</button></div><div id="notebook-steps" class="notebook-steps"></div><p class="notebook-note">Seu plano fica neste navegador. A atualização do Radar é manual e não envia notificações.</p></section>
 
     <section class="listing-section" id="anuncios">
       <div class="section-topline"><p class="eyebrow">MURAL DA COMUNIDADE</p><span class="updated-label"><span class="live-dot"></span> Atualizado agora</span></div>

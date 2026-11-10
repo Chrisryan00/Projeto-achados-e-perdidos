@@ -1,5 +1,18 @@
 # CESMAC Achados & Perdidos
 
+## Radar de Reencontros
+
+A IA Gemini interpreta o relato e uma foto opcional do usuário, busca anúncios do tipo oposto e explica as pistas de cada possível combinação. Cada sugestão apresenta semelhanças, incertezas e perguntas para conferir o objeto sem afirmar propriedade.
+
+- Perguntas de refinamento ajudam a completar o relato antes de uma nova consulta.
+- Um plano de busca de até quatro passos pode ser salvo e acompanhado no navegador.
+- O botão **Investigar com o Radar IA** prepara um caso diretamente de um anúncio, sem incluir contatos.
+- A busca real exclui exemplos fictícios por padrão; há uma opção explícita para testes com demonstrações.
+- Favoritos, buscas salvas, compartilhamento de links e contato por e-mail completam o fluxo.
+
+A foto fornecida pelo usuário é interpretada para procurar nos textos do mural. As fotos do catálogo não são enviadas nem comparadas. O texto e a foto do usuário são enviados ao Gemini somente mediante consentimento; os metadados de anúncios enviados não incluem contatos, descrições ou códigos. Planos e favoritos ficam neste navegador; não há notificações automáticas. [Guia do Render e ativação](ATUALIZAR-RENDER.md).
+
+
 Aplicação web para conectar pessoas da comunidade CESMAC que perderam ou encontraram objetos. A demonstração está publicada no Render: [cesmac-achados-perdidos.onrender.com](https://cesmac-achados-perdidos.onrender.com).
 
 ## Sobre o projeto
@@ -102,7 +115,7 @@ Execute a suíte automatizada na raiz do projeto:
 py -3.14 -m unittest discover -s tests -p "test_*.py" -v
 ```
 
-Os testes usam banco temporário e cobrem validação de anúncios, API, filtros, fotos, códigos de gerenciamento e persistência. Para executá-los, use o comando acima; o resultado depende da versão atual do código e do Python instalado.
+Validação local em 10/11/2026 com Python 3.13.5: 37 testes passaram. Os testes usam banco temporário e respostas simuladas do Gemini e cobrem API, persistência, filtros, imagens, privacidade do catálogo e validação das evidências do Radar. Chamadas reais ao provedor são verificadas separadamente no ambiente publicado.
 
 ## Arquitetura
 
@@ -124,7 +137,7 @@ O serviço está hospedado no Render em [cesmac-achados-perdidos.onrender.com](h
 
 ## Dados e privacidade
 
-O SQLite local é criado em `%LOCALAPPDATA%/CESMAC-AchadosPerdidos/items.sqlite3`; no Render, o caminho configurado é temporário. Os anúncios de demonstração devem usar dados fictícios. Informações de contato enviadas em uma publicação aparecem para visitantes e podem abrir uma conversa por e-mail ou WhatsApp; publique contatos somente com autorização. A análise Gemini opcional recebe somente metadados básicos de anúncios, sem nomes, descrições, fotos, contatos ou códigos de gerenciamento. As sugestões são possibilidades, não confirmação de que dois anúncios falam do mesmo item. As respostas **Pode ser** e **Não é meu item** ficam salvas apenas no navegador e não treinam o modelo.
+O SQLite local é criado em `%LOCALAPPDATA%/CESMAC-AchadosPerdidos/items.sqlite3`; no Render, o caminho configurado é temporário. Os anúncios de demonstração devem usar dados fictícios. Informações de contato enviadas em uma publicação aparecem para visitantes e podem abrir uma conversa por e-mail ou WhatsApp; publique contatos somente com autorização. As correspondências recebem metadados básicos dos anúncios, sem contatos ou códigos. No Radar, o texto e a foto opcional fornecidos pelo usuário são enviados ao Gemini com consentimento; as fotos dos anúncios do catálogo não são enviadas. As sugestões são possibilidades, não confirmação de que dois anúncios falam do mesmo item. As respostas **Pode ser** e **Não é meu item** ficam salvas apenas no navegador e não treinam o modelo.
 
 ## Estrutura
 

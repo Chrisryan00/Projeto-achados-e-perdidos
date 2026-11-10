@@ -552,28 +552,41 @@ class PortalHandler(SimpleHTTPRequestHandler):
         return self.send_json(201, {"item": record_to_dict(row), "managementToken": management_token})
 
     def handle_assistance(self):
-        if not _allow_match_request(self.client_address[0]):
-            return self.send_json(429, {"error": {"message": "Muitas análises. Aguarde um minuto antes de tentar novamente."}})
         try:
             payload = self.read_json()
             if payload is None:
                 return
-            if not isinstance(payload, dict) or payload.get("mode") not in {"search", "draft"}:
+            if not _allow_match_request(self.client_address[0]):
+                return self.send_json(429, {"error": {"message": "Muitas análises. Aguarde um minuto antes de tentar novamente."}})
+            if not isinstance(payload, dict) or not isinstance(payload.get("mode"), str) or payload["mode"] not in {"search", "draft"}:
                 raise ValidationError("Escolha busca ou rascunho de anúncio.")
             text = payload.get("text", "")
             if not isinstance(text, str) or len(text.strip()) < 5 or len(text) > 1500:
                 raise ValidationError("Descreva o item usando entre 5 e 1500 caracteres.")
             photo = validate_photo(payload.get("photo", ""))
-            if photo and payload["mode"] != "draft":
-                raise ValidationError("Fotos são aceitas somente para criar um rascunho.")
+            looking_for = payload.get("lookingFor", "")
+            if not isinstance(looking_for, str) or looking_for not in {"", "lost", "found"}:
+                raise ValidationError("Escolha o tipo de item procurado.")
+            include_examples = payload.get("includeExamples", False)
+            if not isinstance(include_examples, bool):
+                raise ValidationError("A opção de exemplos deve ser verdadeira ou falsa.")
             if payload.get("consent") is not True:
                 raise ValidationError("Autorize o envio do texto e da foto selecionada ao Gemini.")
             with db_session() as db:
-                rows = db.execute("SELECT * FROM listings WHERE status='open' ORDER BY is_demo ASC, created_at DESC LIMIT 100").fetchall()
+                clauses, values = ["status='open'"], []
+                if not include_examples:
+                    clauses.append("is_demo=0")
+                if looking_for and payload["mode"] == "search":
+                    clauses.append("kind=?")
+                    values.append(looking_for)
+                rows = db.execute("SELECT * FROM listings WHERE " + " AND ".join(clauses) +
+                    " ORDER BY is_demo ASC, created_at DESC LIMIT 100", values).fetchall()
             candidates = [{"id": row["id"], "title": row["title"], "category": row["category"],
                 "kind": row["kind"], "location": row["location"], "eventDate": row["event_date"],
                 "demo": bool(row["is_demo"])} for row in rows]
             result = generate_assistance(payload["mode"], text.strip(), photo, candidates, GEMINI_MODEL)
+            result["catalogCount"] = len(candidates) if payload["mode"] == "search" else 0
+            result["includesExamples"] = include_examples
             return self.send_json(200, result)
         except ValidationError as error:
             return self.send_json(422, {"error": {"message": str(error)}})

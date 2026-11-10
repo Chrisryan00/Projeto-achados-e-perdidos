@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: CESMAC Achados & Perdidos API
-  version: 1.0.0
+  version: 1.2.0
   description: API local para publicar, consultar e gerenciar anúncios de itens perdidos e encontrados.
 servers:
   - url: /
@@ -24,7 +24,7 @@ paths:
                   message: { type: string }
   /api/v1/ai/assist:
     post:
-      summary: Buscar anúncios por linguagem natural ou preparar rascunho com foto opcional
+      summary: Radar de Reencontros com pistas explicadas, perguntas, plano de busca e rascunhos
       description: Requer consentimento. Envia texto e foto opcional ao Gemini. O catálogo usa apenas título, tipo, categoria, local, data e indicação de demonstração. Máximo de 100 anúncios abertos, priorizando comunidade. Compartilha o limite de 8 consultas por minuto por endereço de conexão com as correspondências; atrás de proxy esse limite pode ser compartilhado entre visitantes.
       requestBody:
         required: true
@@ -37,7 +37,9 @@ paths:
                 mode: { type: string, enum: [search, draft] }
                 text: { type: string, minLength: 5, maxLength: 1500 }
                 consent: { type: boolean, enum: [true] }
-                photo: { type: string, maxLength: 700000, description: Data URL JPG/PNG/WebP; somente no modo draft }
+                photo: { type: string, maxLength: 700000, description: Data URL JPG/PNG/WebP do usuário; busca por características e criação de rascunho. Fotos do catálogo não são enviadas. }
+                lookingFor: { type: string, enum: ['', lost, found], default: '', description: Tipo dos anúncios a procurar; perdido procura found e encontrado procura lost. Filtro aplicado no servidor. }
+                includeExamples: { type: boolean, default: false, description: Incluir anúncios fictícios apenas quando solicitado }
       responses:
         '200':
           description: Resposta validada do Gemini; nenhum anúncio é criado automaticamente
@@ -49,6 +51,20 @@ paths:
                 properties:
                   method: { type: string, enum: [gemini] }
                   message: { type: string }
+                  catalogCount: { type: integer, minimum: 0 }
+                  includesExamples: { type: boolean }
+                  assessments:
+                    type: array
+                    maxItems: 5
+                    items:
+                      type: object
+                      properties:
+                        id: { type: integer, description: Sempre um ID selecionado do catálogo }
+                        signals: { type: array, maxItems: 3, items: { type: string } }
+                        uncertainties: { type: array, maxItems: 3, items: { type: string } }
+                        questions: { type: array, maxItems: 3, items: { type: string } }
+                  followUpQuestions: { type: array, maxItems: 3, items: { type: string } }
+                  searchPlan: { type: array, maxItems: 4, items: { type: string } }
                   matches:
                     type: array
                     maxItems: 5

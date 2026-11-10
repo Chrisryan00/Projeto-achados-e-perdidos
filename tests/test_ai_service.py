@@ -68,6 +68,35 @@ class AssistanceTests(unittest.TestCase):
                     ai_service.generate_assistance("search", "Perdi uma garrafa", "", self.catalog, "test-model")
                 self.assertNotIn("secret", str(caught.exception))
 
+    def test_radar_evidence_must_reference_selected_catalog_items(self):
+        evidence = {"id": 8, "signals": ["Cor azul no título e no relato"],
+            "uncertainties": ["Marca não informada"], "questions": ["Há alguma marca de uso particular?"]}
+        answer = {"message": "Compare as pistas.", "matchIds": [8], "tips": [],
+            "assessments": [{**evidence, "id": 999}, evidence, evidence, {**evidence, "id": True}],
+            "followUpQuestions": ["Qual era o material?"], "searchPlan": ["Revise o trajeto informado."]}
+        with patch.object(ai_service, "urlopen", return_value=self.response(answer)):
+            result = ai_service.generate_assistance("search", "Perdi uma garrafa azul", "", self.catalog, "test-model")
+        self.assertEqual(result["assessments"], [evidence])
+        self.assertEqual(result["followUpQuestions"], ["Qual era o material?"])
+        self.assertEqual(result["searchPlan"], ["Revise o trajeto informado."])
+
+    def test_radar_rejects_invalid_evidence_instead_of_rendering_it(self):
+        answer = {"message": "Compare.", "matchIds": [8], "tips": [],
+            "assessments": [{"id": 8, "signals": {"unsafe": "not a list"}}]}
+        with patch.object(ai_service, "urlopen", return_value=self.response(answer)):
+            with self.assertRaises(ai_service.AIUnavailable):
+                ai_service.generate_assistance("search", "Perdi uma garrafa", "", self.catalog, "test-model")
+
+    def test_search_photo_is_multimodal_and_catalog_photos_are_not_included(self):
+        answer = {"message": "Procure características.", "matchIds": [], "tips": []}
+        with patch.object(ai_service, "urlopen", return_value=self.response(answer)) as provider:
+            ai_service.generate_assistance("search", "Perdi uma garrafa parecida com esta", "data:image/png;base64,YQ==", self.catalog, "test-model")
+        sent = json.loads(provider.call_args.args[0].data)
+        parts = sent["contents"][0]["parts"]
+        self.assertEqual(len(parts), 2)
+        self.assertEqual(parts[1]["inlineData"]["data"], "YQ==")
+        self.assertEqual(json.loads(parts[0]["text"])["catalogo"], self.catalog)
+
 
 if __name__ == "__main__":
     unittest.main()

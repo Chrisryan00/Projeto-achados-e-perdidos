@@ -39,12 +39,12 @@ async function openCatalogItem(id) {
 }
 
 assistantForm.addEventListener("change", () => {
-  byId("assistant-photo-field").hidden = assistantMode() !== "draft";
+  byId("radar-search-options").hidden = assistantMode() !== "search";
 });
 document.querySelectorAll("[data-example]").forEach((button) => button.addEventListener("click", () => {
   assistantForm.elements.mode.value = button.dataset.mode || "search";
   byId("assistant-text").value = button.dataset.example;
-  byId("assistant-photo-field").hidden = assistantMode() !== "draft";
+  byId("radar-search-options").hidden = assistantMode() !== "search";
   byId("assistant-text").focus();
 }));
 
@@ -68,21 +68,90 @@ assistantForm.addEventListener("submit", async (event) => {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 35000);
   try {
-    const photo = mode === "draft" ? await compressPhoto(byId("assistant-photo").files[0]) : "";
+    const photo = await compressPhoto(byId("assistant-photo").files[0]);
+    const queryText = byId("assistant-text").value;
+    const lookingFor = byId("radar-looking-for").value;
+    const includeExamples = byId("radar-include-examples").checked;
     const response = await fetch("/api/v1/ai/assist", { method: "POST", signal: controller.signal,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mode, text: byId("assistant-text").value, photo, consent: byId("assistant-consent").checked }) });
+      body: JSON.stringify({ mode, text: queryText, photo, lookingFor, includeExamples, consent: byId("assistant-consent").checked }) });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error?.message || "Não foi possível consultar a IA.");
     assistantResults.replaceChildren(node("span", "ai-result-label", "✦ RESPOSTA DO GEMINI"), node("p", "assistant-answer", result.message));
+    if (mode === "search") assistantResults.append(node("p", "radar-scope", `${result.catalogCount} anúncios em aberto analisados · ${result.includesExamples ? "inclui exemplos fictícios" : "somente comunidade"} · fotos dos anúncios não analisadas`));
     (result.matches || []).forEach((item) => {
+      const evidence = node("article", "radar-evidence");
       const link = node("button", "assistant-match");
       link.type = "button";
       link.append(node("strong", "", item.title), node("span", "", `${item.kind === "found" ? "Encontrado" : "Perdido"} · ${item.location}${item.demo ? " · Exemplo fictício" : ""} →`));
       link.addEventListener("click", () => openCatalogItem(item.id));
-      assistantResults.append(link);
+      evidence.append(link);
+      const analysis = result.assessments?.find((entry) => entry.id === item.id);
+      if (analysis) {
+        for (const [field, title] of [["signals", "O que combina"], ["uncertainties", "O que falta confirmar"], ["questions", "Pergunte antes de devolver"]]) {
+          if (!analysis[field]?.length) continue;
+          const section = node("div", `evidence-section evidence-${field}`);
+          section.append(node("strong", "", title));
+          const list = node("ul", "");
+          analysis[field].forEach((entry) => list.append(node("li", "", entry)));
+          section.append(list);
+          evidence.append(section);
+        }
+      } else evidence.append(node("p", "radar-scope", "Confira características, local e data diretamente com quem publicou."));
+      const message = node("button", "utility-button", "Copiar mensagem para conferir →");
+      message.type = "button";
+      message.addEventListener("click", async () => {
+        const text = `Olá! Vi o anúncio "${item.title}" no CESMAC Achados & Perdidos. Podemos comparar os detalhes do objeto? ${analysis?.questions?.[0] || "Você consegue descrever alguma característica específica?"}`;
+        try { await navigator.clipboard.writeText(text); message.textContent = "Mensagem copiada ✓"; }
+        catch { window.prompt("Copie a mensagem e envie pelo contato do anúncio:", text); }
+      });
+      evidence.append(message);
+      assistantResults.append(evidence);
     });
     if (mode === "search" && !result.matches?.length) assistantResults.append(node("p", "", "Nenhum item foi selecionado no catálogo em aberto. Você pode publicar um anúncio ou tentar a busca tradicional."));
+    if (mode === "search" && result.followUpQuestions?.length) {
+      const followup = node("div", "radar-followup");
+      followup.append(node("strong", "", "Vamos melhorar as pistas?"), node("p", "radar-scope", "Complete o que souber. Suas respostas serão enviadas na próxima consulta que você fizer."));
+      const inputs = result.followUpQuestions.map((question) => {
+        const label = node("label", "field", question);
+        const input = node("input", "");
+        input.type = "text";
+        input.maxLength = 180;
+        input.placeholder = "Responda sem dados pessoais";
+        label.append(input);
+        followup.append(label);
+        return { question, input };
+      });
+      const refine = node("button", "button button-outline", "Acrescentar respostas ao relato ↑");
+      refine.type = "button";
+      refine.addEventListener("click", () => {
+        const additions = inputs.filter(({input}) => input.value.trim()).map(({question, input}) => `${question} ${input.value.trim()}`).join("\n");
+        if (!additions) return inputs[0].input.focus();
+        const combined = `${queryText}\n${additions}`;
+        if (combined.length > 1500) { refine.textContent = "Encurte as respostas: o relato aceita 1500 caracteres."; return; }
+        byId("assistant-text").value = combined;
+        byId("assistant-text").focus();
+        byId("assistant-text").scrollIntoView({behavior: "smooth", block: "center"});
+        refine.textContent = "Pronto: revise o relato e consulte o Radar ↑";
+      });
+      followup.append(refine);
+      assistantResults.append(followup);
+    }
+    if (mode === "search" && result.searchPlan?.length) {
+      const plan = node("div", "radar-plan");
+      plan.append(node("strong", "", "Seu próximo passo"));
+      const steps = node("ol", "assistant-tips");
+      result.searchPlan.forEach((step) => steps.append(node("li", "", step)));
+      const save = node("button", "button button-dark", "Salvar meu plano de busca ✓");
+      save.type = "button";
+      save.addEventListener("click", () => {
+        const record = {text: queryText, lookingFor, includeExamples, savedAt: new Date().toISOString(), steps: result.searchPlan.map((text) => ({text, done: false}))};
+        try { localStorage.setItem(notebookKey, JSON.stringify(record)); renderNotebook(); save.textContent = "Plano salvo neste navegador ✓"; }
+        catch { save.textContent = "Não foi possível salvar neste navegador."; }
+      });
+      plan.append(steps, save);
+      assistantResults.append(plan);
+    }
     if (result.tips?.length) {
       const tips = node("ul", "assistant-tips");
       result.tips.forEach((tip) => tips.append(node("li", "", tip)));
@@ -173,5 +242,62 @@ byId("save-search").addEventListener("click", () => {
   } catch { setMessage("Não foi possível salvar a busca neste navegador.", true); }
 });
 renderSearches();
+const notebookKey = "cesmac-reunion-notebook-v1";
+function readNotebook() {
+  try {
+    const value = JSON.parse(localStorage.getItem(notebookKey) || "null");
+    if (!value || typeof value.text !== "string" || value.text.length > 1500 || !["lost", "found"].includes(value.lookingFor) || !Array.isArray(value.steps)) return null;
+    return {...value, steps: value.steps.filter((step) => step && typeof step.text === "string" && typeof step.done === "boolean").slice(0, 4)};
+  } catch { return null; }
+}
+function renderNotebook() {
+  const record = readNotebook();
+  byId("search-notebook").hidden = !record;
+  if (!record) return;
+  byId("notebook-summary").textContent = `${record.steps.filter((step) => step.done).length} de ${record.steps.length} passos concluídos · ${record.text.slice(0, 140)}${record.text.length > 140 ? "…" : ""}`;
+  byId("notebook-steps").replaceChildren(...record.steps.map((step, index) => {
+    const label = node("label", `notebook-step${step.done ? " is-done" : ""}`);
+    const check = node("input", "");
+    check.type = "checkbox";
+    check.checked = step.done;
+    check.addEventListener("change", () => {
+      const current = readNotebook();
+      if (!current?.steps[index] || current.steps[index].text !== step.text) return renderNotebook();
+      current.steps[index].done = check.checked;
+      try { localStorage.setItem(notebookKey, JSON.stringify(current)); renderNotebook(); }
+      catch { check.checked = step.done; setMessage("Não foi possível atualizar o plano salvo.", true); }
+    });
+    label.append(check, node("span", "", step.text));
+    return label;
+  }));
+}
+byId("resume-radar").addEventListener("click", () => {
+  const record = readNotebook();
+  if (!record) return;
+  assistantForm.elements.mode.value = "search";
+  byId("radar-search-options").hidden = false;
+  byId("assistant-text").value = record.text;
+  byId("radar-looking-for").value = record.lookingFor;
+  byId("radar-include-examples").checked = record.includeExamples === true;
+  byId("assistant-photo").value = "";
+  byId("assistant-consent").checked = false;
+  assistantResults.hidden = true;
+  byId("assistente").scrollIntoView({behavior: "smooth", block: "start"});
+  byId("assistant-text").focus({preventScroll: true});
+});
+function prepareRadar(item) {
+  assistantForm.elements.mode.value = "search";
+  byId("radar-search-options").hidden = false;
+  byId("radar-looking-for").value = item.kind === "lost" ? "found" : "lost";
+  byId("radar-include-examples").checked = item.demo;
+  byId("assistant-photo").value = "";
+  byId("assistant-consent").checked = false;
+  // Only public matching metadata is prefilled; never send a publisher's contacts.
+  byId("assistant-text").value = `${item.kind === "lost" ? "Perdi" : "Encontrei"} ${item.title}. Categoria: ${item.category}. Local: ${item.location}. Data: ${item.eventDate}. Busque itens do tipo oposto e explique as pistas e dúvidas.`;
+  assistantResults.hidden = true;
+  byId("assistente").scrollIntoView({behavior: "smooth", block: "start"});
+  byId("assistant-text").focus({preventScroll: true});
+}
+renderNotebook();
 const linkedItem = new URLSearchParams(location.search).get("item");
 if (linkedItem && /^\d+$/.test(linkedItem)) openCatalogItem(Number(linkedItem));

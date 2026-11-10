@@ -138,6 +138,29 @@ class PortalApiTests(unittest.TestCase):
         self.assertEqual(status, 429)
         portal_server._match_requests.clear()
 
+    def test_radar_filters_opposite_type_and_demo_records_on_server(self):
+        portal_server._match_requests.clear()
+        for kind in ("lost", "found"):
+            self._request("/api/v1/items", "POST", self._new_listing(kind=kind))
+        payload = {"mode": "search", "text": "Perdi um objeto", "consent": True, "lookingFor": "found"}
+        with patch.object(portal_server, "generate_assistance", return_value={"method": "gemini", "matches": [], "message": "Sem itens", "tips": []}) as provider:
+            status, body, _ = self._request("/api/v1/ai/assist", "POST", payload)
+        self.assertEqual(status, 200)
+        candidates = provider.call_args.args[3]
+        self.assertEqual(len(candidates), 1)
+        self.assertEqual(candidates[0]["kind"], "found")
+        self.assertFalse(candidates[0]["demo"])
+        self.assertEqual(json.loads(body)["catalogCount"], 1)
+        self.assertFalse(json.loads(body)["includesExamples"])
+
+    def test_radar_validates_options_without_server_errors(self):
+        portal_server._match_requests.clear()
+        payload = {"mode": "search", "text": "Perdi um objeto", "consent": True}
+        for invalid in ({"lookingFor": []}, {"includeExamples": "true"}, {"mode": []}):
+            with self.subTest(invalid=invalid):
+                status, _, _ = self._request("/api/v1/ai/assist", "POST", {**payload, **invalid})
+                self.assertEqual(status, 422)
+
     def test_publish_find_contact_and_persist_after_restart(self):
         listing = self._new_listing()
         status, body, _ = self._request("/api/v1/items", "POST", listing)

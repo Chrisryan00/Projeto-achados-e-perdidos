@@ -38,11 +38,13 @@ Depois de atualizar o código, salve as variáveis com deploy e aguarde o servi�
 3. No site, use o assistente, autorize o envio e descreva um item. Uma resposta real terá a identificação **RESPOSTA DO GEMINI**. Erro de chave, cota ou conexão aparece explicitamente.
 4. No modo **Preparar anúncio**, envie um relato e opcionalmente uma foto sem dados pessoais. Confira o rascunho, complete local, data e contatos e publique somente depois de revisar.
 5. Teste favoritos, buscas salvas, link compartilhado e contato por e-mail. Favoritos e buscas são locais ao navegador; não enviam notificações.
+6. No Radar, selecione perdido/encontrado e teste com e sem exemplos fictícios. Os resultados mostram pistas, incertezas e perguntas para conferir o objeto. Uma foto do usuário pode ser analisada; fotos do catálogo não são comparadas.
+7. Responda às perguntas de refinamento, acrescente ao relato e consulte novamente. Salve o plano, marque passos concluídos e recarregue a página para conferir a persistência local.
 
 ## Limites atuais
 
 - Busca com IA considera até 100 anúncios abertos, priorizando comunidade. O mural carrega até 200 anúncios. Não há garantia de identificação do objeto.
-- A nova busca envia texto fornecido pelo usuário e metadados dos anúncios. O rascunho envia texto e foto selecionada mediante consentimento. Contatos e códigos dos anúncios não entram no catálogo enviado.
+- A busca e o rascunho enviam texto e foto opcional do usuário mediante consentimento. O catálogo não inclui contatos, descrições, códigos ou fotos dos anúncios. Exemplos são excluídos por padrão. O plano é salvo somente no navegador quando solicitado e nunca dispara consultas em segundo plano.
 - Os testes automatizados usam respostas simuladas do provedor. A validação real exige uma chave e uma consulta bem-sucedida no ambiente configurado.
 - O limite é de 8 análises/minuto por endereço de conexão, compartilhado com correspondências. Atrás do proxy do Render, visitantes podem compartilhar o limite. Para uso amplo, adote armazenamento de cotas compartilhado e identificação confiável no proxy.
 - O Render atual usa SQLite em `/tmp`: anúncios e fotos podem desaparecer em reinícios e deploys. Para conservar publicações, será preciso configurar armazenamento persistente ou migrar para um banco gerenciado. Esta atualização não muda o plano nem cria serviços pagos.

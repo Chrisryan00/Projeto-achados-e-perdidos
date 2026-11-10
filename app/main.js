@@ -199,6 +199,10 @@ function makeItemCard(item) {
     addContactActions(actions, item);
   }
   if (item.status === "open") {
+    const radarButton = node("button", "radar-card-button", "◎ Investigar com o Radar IA");
+    radarButton.type = "button";
+    radarButton.addEventListener("click", () => prepareRadar(item));
+    content.append(radarButton);
     const matchesButton = node("button", "match-toggle", "✦ Ver possíveis correspondências");
     matchesButton.type = "button";
     matchesButton.addEventListener("click", () => findMatches(item, content, matchesButton));
@@ -273,6 +277,8 @@ async function loadItems() {
     byId("stat-found").textContent = data.stats.found;
     byId("stat-resolved").textContent = data.stats.resolved;
     render(state.items);
+    const updated = document.querySelector(".updated-label");
+    if (updated) updated.textContent = `Atualizado às ${new Intl.DateTimeFormat("pt-BR", {hour: "2-digit", minute: "2-digit"}).format(new Date())}`;
     setMessage("");
   } catch (error) {
     if (sequence !== loadSequence) return;
