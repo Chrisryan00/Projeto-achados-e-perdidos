@@ -7,6 +7,77 @@ servers:
   - url: /
     description: Mesmo endereço da aplicação, em ambiente local ou na demonstração hospedada
 paths:
+  /api/v1/ai/status:
+    get:
+      summary: Consultar configuração da IA sem revelar a chave
+      responses:
+        '200':
+          description: Configuração presente ou ausente; não garante disponibilidade do provedor
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  configured: { type: boolean }
+                  provider: { type: string, enum: [gemini] }
+                  model: { type: string }
+                  message: { type: string }
+  /api/v1/ai/assist:
+    post:
+      summary: Buscar anúncios por linguagem natural ou preparar rascunho com foto opcional
+      description: Requer consentimento. Envia texto e foto opcional ao Gemini. O catálogo usa apenas título, tipo, categoria, local, data e indicação de demonstração. Máximo de 100 anúncios abertos, priorizando comunidade. Compartilha o limite de 8 consultas por minuto por endereço de conexão com as correspondências; atrás de proxy esse limite pode ser compartilhado entre visitantes.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [mode, text, consent]
+              properties:
+                mode: { type: string, enum: [search, draft] }
+                text: { type: string, minLength: 5, maxLength: 1500 }
+                consent: { type: boolean, enum: [true] }
+                photo: { type: string, maxLength: 700000, description: Data URL JPG/PNG/WebP; somente no modo draft }
+      responses:
+        '200':
+          description: Resposta validada do Gemini; nenhum anúncio é criado automaticamente
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [method, message, matches, tips]
+                properties:
+                  method: { type: string, enum: [gemini] }
+                  message: { type: string }
+                  matches:
+                    type: array
+                    maxItems: 5
+                    items:
+                      type: object
+                      properties:
+                        id: { type: integer }
+                        title: { type: string }
+                        kind: { type: string, enum: [lost, found] }
+                        category: { type: string }
+                        location: { type: string }
+                        eventDate: { type: string, format: date }
+                        demo: { type: boolean }
+                  tips:
+                    type: array
+                    maxItems: 3
+                    items: { type: string }
+                  draft:
+                    type: object
+                    properties:
+                      title: { type: string, maxLength: 100 }
+                      description: { type: string, maxLength: 1500 }
+                      category: { type: string }
+                      kind: { type: string, enum: [lost, found] }
+                      location: { type: string, maxLength: 120 }
+        '413': { description: Corpo maior que 1 MB }
+        '422': { description: Entrada inválida ou consentimento ausente }
+        '429': { description: Limite de consultas atingido }
+        '503': { description: IA sem configuração ou provedor indisponível; não retorna resposta simulada }
   /api/v1/health:
     get:
       summary: Verificar disponibilidade
@@ -161,6 +232,18 @@ paths:
         '413': { description: Requisição acima de 1 MB }
         '422': { description: Imagem inválida ou ausente }
   /api/v1/items/{id}:
+    get:
+      summary: Consultar um anúncio por ID para abrir links compartilhados
+      responses:
+        '200':
+          description: Anúncio público sem código de gerenciamento
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  item: { $ref: '#/components/schemas/Item' }
+        '404': { description: Anúncio inexistente ou removido }
     parameters:
       - in: path
         name: id

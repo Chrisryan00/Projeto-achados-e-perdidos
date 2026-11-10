@@ -21,6 +21,7 @@ from urllib.parse import parse_qs, quote, urlsplit
 from urllib.request import Request, urlopen
 
 from domain import CATEGORIES, KINDS, ValidationError, validate_listing, validate_photo
+from ai_service import AIUnavailable, generate_assistance
 
 
 APP_DIR = Path(__file__).resolve().parent
@@ -395,6 +396,15 @@ class PortalHandler(SimpleHTTPRequestHandler):
         if length < 0:
             raise ValidationError("Tamanho de conteúdo inválido.")
         if length > MAX_BODY_BYTES:
+            # Drain a bounded, slightly oversized upload so Windows can deliver the
+            # error response instead of resetting a socket with unread request bytes.
+            if length <= MAX_BODY_BYTES * 2:
+                self.connection.settimeout(3)
+                try:
+                    self.rfile.read(length)
+                except OSError:
+                    pass
+            self.close_connection = True
             self.send_json(413, {"error": {"message": "A requisição excede o limite de 1 MB."}})
             return None
         try:
@@ -404,6 +414,17 @@ class PortalHandler(SimpleHTTPRequestHandler):
 
     def do_GET(self):
         parsed = urlsplit(self.path)
+        if parsed.path == "/api/v1/ai/status":
+            configured = bool(os.environ.get("GEMINI_API_KEY", "").strip())
+            return self.send_json(200, {"configured": configured, "provider": "gemini", "model": GEMINI_MODEL,
+                "message": "IA configurada; a disponibilidade será verificada ao usar." if configured else "A IA ainda não foi configurada pelo responsável pelo site."})
+        item_id = self._item_id()
+        if item_id is not None:
+            with db_session() as db:
+                row = db.execute("SELECT * FROM listings WHERE id=?", (item_id,)).fetchone()
+            if not row:
+                return self.send_json(404, {"error": {"message": "Anúncio não encontrado ou removido."}})
+            return self.send_json(200, {"item": record_to_dict(row)})
         photo_parts = parsed.path.strip("/").split("/")
         if len(photo_parts) == 5 and photo_parts[:3] == ["api", "v1", "items"] and photo_parts[4] == "photo" and photo_parts[3].isdigit():
             with db_session() as db:
@@ -476,6 +497,8 @@ class PortalHandler(SimpleHTTPRequestHandler):
 
     def do_POST(self):
         path = urlsplit(self.path).path
+        if path == "/api/v1/ai/assist":
+            return self.handle_assistance()
         match_parts = path.strip("/").split("/")
         if len(match_parts) == 5 and match_parts[:3] == ["api", "v1", "items"] and match_parts[3].isdigit() and match_parts[4] == "photo":
             # Demo images, plus the restored Christian backpack card, are editable locally only.
@@ -528,6 +551,35 @@ class PortalHandler(SimpleHTTPRequestHandler):
             row = db.execute("SELECT * FROM listings WHERE id = ?", (cursor.lastrowid,)).fetchone()
         return self.send_json(201, {"item": record_to_dict(row), "managementToken": management_token})
 
+    def handle_assistance(self):
+        if not _allow_match_request(self.client_address[0]):
+            return self.send_json(429, {"error": {"message": "Muitas análises. Aguarde um minuto antes de tentar novamente."}})
+        try:
+            payload = self.read_json()
+            if payload is None:
+                return
+            if not isinstance(payload, dict) or payload.get("mode") not in {"search", "draft"}:
+                raise ValidationError("Escolha busca ou rascunho de anúncio.")
+            text = payload.get("text", "")
+            if not isinstance(text, str) or len(text.strip()) < 5 or len(text) > 1500:
+                raise ValidationError("Descreva o item usando entre 5 e 1500 caracteres.")
+            photo = validate_photo(payload.get("photo", ""))
+            if photo and payload["mode"] != "draft":
+                raise ValidationError("Fotos são aceitas somente para criar um rascunho.")
+            if payload.get("consent") is not True:
+                raise ValidationError("Autorize o envio do texto e da foto selecionada ao Gemini.")
+            with db_session() as db:
+                rows = db.execute("SELECT * FROM listings WHERE status='open' ORDER BY is_demo ASC, created_at DESC LIMIT 100").fetchall()
+            candidates = [{"id": row["id"], "title": row["title"], "category": row["category"],
+                "kind": row["kind"], "location": row["location"], "eventDate": row["event_date"],
+                "demo": bool(row["is_demo"])} for row in rows]
+            result = generate_assistance(payload["mode"], text.strip(), photo, candidates, GEMINI_MODEL)
+            return self.send_json(200, result)
+        except ValidationError as error:
+            return self.send_json(422, {"error": {"message": str(error)}})
+        except AIUnavailable as error:
+            return self.send_json(503, {"error": {"message": str(error)}})
+
     def handle_matches(self, item_id):
         if not _allow_match_request(self.client_address[0]):
             return self.send_json(429, {"error": {"message": "Muitas análises em pouco tempo. Aguarde um minuto e tente novamente."}})
@@ -565,9 +617,8 @@ class PortalHandler(SimpleHTTPRequestHandler):
         if api_key and candidates:
             try:
                 ai_ids = _rank_matches_with_gemini(api_key, original_for_ai, candidates)
-                if ai_ids:
-                    ranked_ids = ai_ids
-                    method = "gemini"
+                ranked_ids = list(dict.fromkeys(ai_ids))
+                method = "gemini"
             except RuntimeError:
                 # The local matcher remains available if the external service is down or misconfigured.
                 pass

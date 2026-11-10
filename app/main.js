@@ -5,7 +5,12 @@ const categories = {
   "Acessórios": "✦", "Documentos": "▤", "Eletrônicos": "⌁",
   "Material de estudo": "▧", "Roupas e acessórios": "◇", Chaves: "⌕", Outros: "✳",
 };
-const state = { kind: "", status: "all", mineOnly: false, source: "all", items: [], loading: false };
+const state = { kind: "", status: "all", mineOnly: false, favoritesOnly: false, source: "all", items: [], loading: false };
+const favoritesKey = "cesmac-favorites-v1";
+function readFavorites() {
+  try { const value = JSON.parse(localStorage.getItem(favoritesKey) || "[]"); return Array.isArray(value) ? value.filter(Number.isInteger) : []; }
+  catch { return []; }
+}
 const byId = (id) => document.getElementById(id);
 const grid = byId("items-grid");
 const resolvedGrid = byId("resolved-grid");
@@ -63,6 +68,11 @@ function addContactActions(actions, item) {
     link.rel = "noopener noreferrer";
     link.setAttribute("aria-label", `${contactLabel} pelo WhatsApp`);
     actions.append(link);
+  }
+  if (item.contactEmail) {
+    const email = node("a", "button button-contact", "E-mail");
+    email.href = `mailto:${encodeURIComponent(item.contactEmail)}?subject=${encodeURIComponent(`Anúncio: ${item.title}`)}`;
+    actions.append(email);
   }
 }
 
@@ -185,7 +195,7 @@ function makeItemCard(item) {
     remove.type = "button";
     remove.addEventListener("click", () => manageItem(item, "delete"));
     actions.append(remove);
-  } else if (item.status === "open" && item.contactPhone) {
+  } else if (item.status === "open" && (item.contactPhone || item.contactEmail)) {
     addContactActions(actions, item);
   }
   if (item.status === "open") {
@@ -195,6 +205,32 @@ function makeItemCard(item) {
     content.append(matchesButton);
   }
   if (actions.childElementCount) content.append(actions);
+  const utilities = node("div", "card-utilities");
+  const saved = readFavorites().includes(item.id);
+  const favorite = node("button", "utility-button", saved ? "♥ Salvo" : "♡ Salvar");
+  favorite.type = "button";
+  favorite.setAttribute("aria-pressed", String(saved));
+  favorite.setAttribute("aria-label", `Salvar ${item.title} nos favoritos`);
+  favorite.addEventListener("click", () => {
+    const current = readFavorites();
+    const next = current.includes(item.id) ? current.filter((id) => id !== item.id) : [...current, item.id];
+    try { localStorage.setItem(favoritesKey, JSON.stringify(next)); render(state.items); }
+    catch { setMessage("Não foi possível salvar. Verifique se o navegador permite armazenamento local.", true); }
+  });
+  const share = node("button", "utility-button", "↗ Compartilhar");
+  share.type = "button";
+  share.addEventListener("click", async () => {
+    const url = new URL(location.origin);
+    url.searchParams.set("item", item.id);
+    try {
+      if (navigator.share) await navigator.share({ title: item.title, url: url.href });
+      else { await navigator.clipboard.writeText(url.href); setMessage("Link do anúncio copiado!"); }
+    } catch (error) {
+      if (error.name !== "AbortError") window.prompt("Copie o link do anúncio:", url.href);
+    }
+  });
+  utilities.append(favorite, share);
+  content.append(utilities);
   card.append(content);
   return card;
 }
@@ -204,6 +240,7 @@ function render(items) {
   let visible = items.filter((item) => state.source === "all"
     || (state.source === "examples" ? item.demo : !item.demo));
   if (state.mineOnly) visible = visible.filter((item) => ownedIds.has(String(item.id)));
+  if (state.favoritesOnly) visible = visible.filter((item) => readFavorites().includes(item.id));
   visible = [...visible].sort((a, b) => {
     const resolvedOrder = Number(a.status === "resolved") - Number(b.status === "resolved");
     if (resolvedOrder) return resolvedOrder;
@@ -221,13 +258,16 @@ function render(items) {
   byId("empty-state").hidden = visible.length !== 0;
 }
 
+let loadSequence = 0;
 async function loadItems() {
+  const sequence = ++loadSequence;
   state.loading = true;
   byId("results-count").textContent = "Buscando no mural…";
   try {
     const response = await fetch(`${API}?${currentParams()}`);
     if (!response.ok) throw new Error("Não foi possível carregar os anúncios.");
     const data = await response.json();
+    if (sequence !== loadSequence) return;
     state.items = data.items;
     byId("stat-lost").textContent = data.stats.lost;
     byId("stat-found").textContent = data.stats.found;
@@ -235,13 +275,14 @@ async function loadItems() {
     render(state.items);
     setMessage("");
   } catch (error) {
+    if (sequence !== loadSequence) return;
     grid.replaceChildren();
     resolvedGrid.replaceChildren();
     byId("resolved-section").hidden = true;
     byId("results-count").textContent = "Mural indisponível";
     byId("empty-state").hidden = true;
-    setMessage(`${error.message} Confirme se o servidor está rodando em http://127.0.0.1:8000.`, true);
-  } finally { state.loading = false; }
+    setMessage(`${error.message} Tente atualizar a página em instantes.`, true);
+  } finally { if (sequence === loadSequence) state.loading = false; }
 }
 
 let searchTimer;

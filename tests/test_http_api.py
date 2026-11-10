@@ -7,6 +7,7 @@ import tempfile
 import threading
 import unittest
 import uuid
+from unittest.mock import patch
 from datetime import date
 from http.server import ThreadingHTTPServer
 from pathlib import Path
@@ -88,6 +89,54 @@ class PortalApiTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertIn("application/yaml", headers.get("Content-Type", ""))
         self.assertIn(b"openapi: 3.0.3", body)
+
+    def test_ai_status_does_not_expose_secret(self):
+        with patch.dict("os.environ", {"GEMINI_API_KEY": "private-test-secret"}):
+            status, body, _ = self._request("/api/v1/ai/status")
+        self.assertEqual(status, 200)
+        self.assertTrue(json.loads(body)["configured"])
+        self.assertNotIn(b"private-test-secret", body)
+
+    def test_direct_item_lookup_for_shared_links(self):
+        status, body, _ = self._request("/api/v1/items", "POST", self._new_listing())
+        created = json.loads(body)
+        status, body, _ = self._request("/api/v1/items/{}".format(created["item"]["id"]))
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body)["item"]["id"], created["item"]["id"])
+        self.assertNotIn(created["managementToken"].encode(), body)
+        self.assertNotIn(b"management_hash", body)
+        status, _, _ = self._request("/api/v1/items/999999")
+        self.assertEqual(status, 404)
+
+    def test_ai_requires_valid_input_and_explicit_consent(self):
+        portal_server._match_requests.clear()
+        with patch.object(portal_server, "generate_assistance") as provider:
+            for payload in ([], {"mode": "bad"}, {"mode": "search", "text": "Perdi um fone", "consent": False}):
+                status, _, _ = self._request("/api/v1/ai/assist", "POST", payload)
+                self.assertEqual(status, 422)
+            provider.assert_not_called()
+
+    def test_ai_excludes_contacts_descriptions_and_management_from_catalog(self):
+        portal_server._match_requests.clear()
+        self._request("/api/v1/items", "POST", self._new_listing())
+        result = {"method": "gemini", "message": "Nenhum item compatível", "matches": [], "tips": []}
+        with patch.object(portal_server, "generate_assistance", return_value=result) as provider:
+            status, body, _ = self._request("/api/v1/ai/assist", "POST", {"mode": "search", "text": "Perdi um fone preto", "consent": True})
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body), result)
+        for item in provider.call_args.args[3]:
+            self.assertEqual(set(item), {"id", "title", "category", "kind", "location", "eventDate", "demo"})
+
+    def test_ai_unconfigured_is_503_and_rate_limit_is_429(self):
+        portal_server._match_requests.clear()
+        payload = {"mode": "search", "text": "Perdi um fone preto", "consent": True}
+        with patch.dict("os.environ", {"GEMINI_API_KEY": ""}):
+            status, _, _ = self._request("/api/v1/ai/assist", "POST", payload)
+        self.assertEqual(status, 503)
+        with patch.object(portal_server, "_allow_match_request", return_value=False):
+            status, _, _ = self._request("/api/v1/ai/assist", "POST", payload)
+        self.assertEqual(status, 429)
+        portal_server._match_requests.clear()
 
     def test_publish_find_contact_and_persist_after_restart(self):
         listing = self._new_listing()

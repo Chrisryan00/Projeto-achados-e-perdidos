@@ -6,8 +6,9 @@
   <meta name="theme-color" content="#f6f7f3">
   <meta name="description" content="Portal de achados e perdidos da comunidade CESMAC.">
   <title>Achados & Perdidos | CESMAC</title>
-  <link rel="stylesheet" href="/styles.css?v=7">
-  <script src="/main.js?v=7" defer></script>
+  <link rel="stylesheet" href="/styles.css?v=8">
+  <script src="/main.js?v=8" defer></script>
+  <script src="/assistant.js?v=8" defer></script>
 </head>
 <body>
   <header class="topbar">
@@ -16,6 +17,7 @@
       <span><strong>CESMAC</strong><small>ACHADOS & PERDIDOS</small></span>
     </a>
     <nav class="top-nav" aria-label="Navegação principal">
+      <a href="#assistente">✦ Assistente IA</a>
       <a href="#anuncios">Explorar anúncios</a>
       <button class="my-posts-link" id="my-posts-button" type="button">Minhas publicações <span id="my-posts-count">0</span></button>
       <button class="button button-dark top-report" id="open-report" type="button"><span aria-hidden="true">＋</span> Publicar item</button>
@@ -28,10 +30,10 @@
       <div class="hero-copy">
         <p class="eyebrow"><span class="live-dot"></span> COMUNIDADE CESMAC</p>
         <h1>Encontrou ou perdeu<br><em>algo pelo caminho?</em></h1>
-        <p class="hero-intro">A gente ajuda esse encontro a acontecer. Consulte os anúncios da comunidade ou publique um item em poucos passos.</p>
+        <p class="hero-intro">Menos procura. Mais reencontros. Conte o que aconteceu, encontre pistas no mural e conecte-se com quem pode ajudar.</p>
         <div class="hero-actions">
           <button class="button button-dark button-large" id="hero-report" type="button">＋ Publicar um item</button>
-          <a class="text-link" href="#anuncios">Ver anúncios <span aria-hidden="true">↓</span></a>
+          <a class="text-link" href="#assistente">✦ Procurar com IA <span aria-hidden="true">↓</span></a>
         </div>
         <div class="trust-note"><span class="shield" aria-hidden="true">✓</span> Contato direto entre estudantes e comunidade</div>
       </div>
@@ -50,6 +52,21 @@
       <div class="stat stat-message"><strong>Um gesto simples<br>pode mudar o dia.</strong><span>Ajude a devolver algo importante.</span></div>
     </section>
 
+    <section class="assistant-section" id="assistente" aria-labelledby="assistant-title">
+      <div class="assistant-intro"><p class="eyebrow">UMA AJUDA NO REENCONTRO</p><h2 id="assistant-title">Você conta.<br>O assistente conecta.</h2><p>Descreva do seu jeito. A IA interpreta o relato e procura nos anúncios em aberto ou prepara um rascunho para você revisar.</p><span id="ai-status" class="ai-status" role="status">Verificando configuração da IA…</span><div class="assistant-features"><span>↗ Busca por significado</span><span>◎ Leitura de foto para rascunhos</span><span>✓ Você decide o que publicar</span></div></div>
+      <div class="assistant-workspace">
+        <form id="assistant-form">
+          <div class="assistant-modes" aria-label="O que você quer fazer?"><label><input type="radio" name="mode" value="search" checked><span>⌕ Encontrar um item</span></label><label><input type="radio" name="mode" value="draft"><span>＋ Preparar anúncio</span></label></div>
+          <label class="field" for="assistant-text">O que aconteceu?</label><textarea id="assistant-text" name="text" minlength="5" maxlength="1500" rows="4" required placeholder="Perdi uma garrafa de metal azul perto da biblioteca. Alguém encontrou algo parecido?"></textarea>
+          <div class="assistant-examples"><button type="button" data-example="Perdi um fone de ouvido preto na biblioteca. Há algum encontrado?">Fone na biblioteca</button><button type="button" data-example="Encontrei um molho de chaves com chaveiro azul. Quero preparar um anúncio para encontrar o dono." data-mode="draft">Encontrei umas chaves</button></div>
+          <label id="assistant-photo-field" class="field assistant-photo" hidden>Foto para ajudar a descrever <span class="optional">opcional</span><input id="assistant-photo" type="file" accept="image/jpeg,image/png,image/webp"><small>Evite fotos com documentos, rostos ou dados pessoais.</small></label>
+          <label class="assistant-consent"><input id="assistant-consent" type="checkbox" required><span>Autorizo enviar este texto e a foto selecionada ao Gemini para esta análise. Os contatos do mural não são enviados.</span></label>
+          <div class="assistant-submit"><small>Resultados são sugestões. Confira os detalhes antes de combinar a devolução.</small><button id="assistant-submit" class="button button-dark" type="submit">Analisar com IA ✦</button></div>
+        </form>
+        <div id="assistant-results" class="assistant-results" aria-live="polite" aria-busy="false" hidden></div>
+      </div>
+    </section>
+
     <section class="listing-section" id="anuncios">
       <div class="section-topline"><p class="eyebrow">MURAL DA COMUNIDADE</p><span class="updated-label"><span class="live-dot"></span> Atualizado agora</span></div>
       <div class="section-heading"><div><h2>Vamos encontrar?</h2><p>Busque nos anúncios e veja sugestões de itens parecidos.</p></div>
@@ -63,9 +80,10 @@
         <div class="filter-tabs" aria-label="Tipo de anúncio"><button class="filter-tab active" data-kind="" type="button">Tudo</button><button class="filter-tab" data-kind="lost" type="button">Perdidos</button><button class="filter-tab" data-kind="found" type="button">Encontrados</button></div>
       </div>
 
-      <div class="status-tabs" aria-label="Situação dos anúncios"><span>Ver:</span><button class="status-tab active" data-status="all" type="button">Todos</button><button class="status-tab" data-status="open" type="button">Em aberto</button><button class="status-tab status-resolved" data-status="resolved" type="button">✓ Resolvidos</button></div>
+      <div class="status-tabs" aria-label="Situação dos anúncios"><span>Ver:</span><button class="status-tab active" data-status="all" type="button">Todos</button><button class="status-tab" data-status="open" type="button">Em aberto</button><button class="status-tab status-resolved" data-status="resolved" type="button">✓ Resolvidos</button><button id="favorites-filter" class="button button-quiet" type="button" aria-pressed="false">♡ Favoritos</button></div>
 
       <div class="results-meta"><span id="results-count">Carregando anúncios…</span><label class="sort-select">Ordenar por <select id="sort-filter"><option value="recent">Mais recentes</option><option value="urgent">Urgentes primeiro</option></select></label></div>
+      <div class="saved-search-toolbar"><button id="save-search" class="text-link" type="button">＋ Salvar esta busca</button><span>Buscas e favoritos ficam neste navegador.</span><div id="saved-searches" aria-label="Buscas salvas"></div></div>
       <div class="source-filter-row"><label for="source-filter">Mostrar <select id="source-filter"><option value="all">Todos os anúncios</option><option value="community">Publicações da comunidade</option><option value="examples">Exemplos fictícios</option></select></label><span>“WhatsApp real · demo” indica item inventado com contato autorizado; o botão envia mensagem ao número real do cartão.</span></div>
       <div id="items-grid" class="items-grid" aria-live="polite"></div>
       <section id="resolved-section" class="resolved-section" aria-labelledby="resolved-heading" hidden>
@@ -76,6 +94,7 @@
       <p id="page-message" class="page-message" role="status" aria-live="polite"></p>
     </section>
 
+    <section class="reunion-guide"><div><p class="eyebrow">UM REENCONTRO COM CUIDADO</p><h2>Achou uma possível combinação?</h2></div><p><strong>1. Compare os detalhes.</strong> Peça uma característica que só o dono conheceria. Uma sugestão da IA não comprova propriedade.</p><p><strong>2. Combine em lugar público.</strong> Prefira um ponto movimentado no campus. Não envie pagamentos ou códigos pessoais.</p><p><strong>3. Conte o final feliz.</strong> Use seu código de gerenciamento para marcar o anúncio como resolvido e manter o mural atualizado.</p></section>
     <section class="how-it-works">
       <div><p class="eyebrow">RÁPIDO E SIMPLES</p><h2>Três passos para<br>um bom reencontro.</h2></div>
       <div class="how-step"><span>01</span><div><strong>Procure no mural</strong><p>Use a busca e os filtros para localizar um anúncio.</p></div></div>
