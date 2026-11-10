@@ -20,6 +20,8 @@ class AssistanceTests(unittest.TestCase):
         self.catalog = [{"id": 8, "title": "Garrafa azul", "kind": "found", "demo": False}]
 
     def response(self, answer, finish="STOP"):
+        if isinstance(answer, dict):
+            answer = {"assessments": [], "followUpQuestions": [], "searchPlan": [], **answer}
         return io.BytesIO(json.dumps({"candidates": [{"finishReason": finish,
             "content": {"parts": [{"text": json.dumps(answer)}]}}]}).encode())
 
@@ -96,6 +98,26 @@ class AssistanceTests(unittest.TestCase):
         self.assertEqual(len(parts), 2)
         self.assertEqual(parts[1]["inlineData"]["data"], "YQ==")
         self.assertEqual(json.loads(parts[0]["text"])["catalogo"], self.catalog)
+
+    def test_radar_retries_schema_rejection_once_with_same_output_validation(self):
+        rejected = HTTPError("https://example.invalid", 400, "schema rejected", {}, io.BytesIO(b"private provider details"))
+        answer = {"message": "Nenhuma combinação", "matchIds": [999], "tips": [],
+            "assessments": [], "followUpQuestions": ["Qual a cor?"], "searchPlan": ["Revise o trajeto."]}
+        with patch.object(ai_service, "urlopen", side_effect=[rejected, self.response(answer)]) as provider:
+            result = ai_service.generate_assistance("search", "Perdi uma garrafa", "", self.catalog, "test-model")
+        self.assertEqual(provider.call_count, 2)
+        retry_body = json.loads(provider.call_args.args[0].data)
+        self.assertNotIn("responseSchema", retry_body["generationConfig"])
+        self.assertEqual(retry_body["generationConfig"]["responseMimeType"], "application/json")
+        self.assertEqual(result["matches"], [])
+        self.assertEqual(result["searchPlan"], ["Revise o trajeto."])
+
+    def test_json_mode_still_rejects_missing_radar_fields(self):
+        raw = io.BytesIO(json.dumps({"candidates": [{"finishReason": "STOP", "content": {"parts": [
+            {"text": json.dumps({"message": "Incomplete", "matchIds": [], "tips": []})}]}}]}).encode())
+        with patch.object(ai_service, "urlopen", return_value=raw):
+            with self.assertRaises(ai_service.AIUnavailable):
+                ai_service.generate_assistance("search", "Perdi uma garrafa", "", self.catalog, "test-model")
 
 
 if __name__ == "__main__":

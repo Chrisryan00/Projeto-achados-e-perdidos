@@ -115,7 +115,7 @@ Execute a suíte automatizada na raiz do projeto:
 py -3.14 -m unittest discover -s tests -p "test_*.py" -v
 ```
 
-Validação local em 10/11/2026 com Python 3.13.5: 37 testes passaram. Os testes usam banco temporário e respostas simuladas do Gemini e cobrem API, persistência, filtros, imagens, privacidade do catálogo e validação das evidências do Radar. Chamadas reais ao provedor são verificadas separadamente no ambiente publicado.
+Validação local em 10/11/2026 com Python 3.13.5: 39 testes passaram. Os testes usam banco temporário e respostas simuladas do Gemini e cobrem API, persistência, filtros, imagens, privacidade do catálogo e validação das evidências do Radar. Chamadas reais ao provedor são verificadas separadamente no ambiente publicado.
 
 ## Arquitetura
 

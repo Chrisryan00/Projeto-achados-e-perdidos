@@ -76,8 +76,23 @@ def generate_assistance(mode, text, photo, candidates, model):
         data=json.dumps(body).encode("utf-8"), method="POST",
         headers={"Content-Type": "application/json", "x-goog-api-key": key})
     try:
-        with urlopen(request, timeout=25) as response:
-            result = json.loads(response.read(1_000_000).decode("utf-8"))
+        try:
+            with urlopen(request, timeout=25) as response:
+                result = json.loads(response.read(1_000_000).decode("utf-8"))
+        except HTTPError as error:
+            # Some provider model versions reject complex responseSchema objects.
+            # Retry once in JSON mode; the exact same server validation still applies.
+            if error.code != 400 or mode != "search":
+                raise
+            error.close()
+            body["generationConfig"].pop("responseSchema")
+            body["systemInstruction"]["parts"].append({"text":
+                "Retorne somente JSON válido seguindo exatamente este esquema, incluindo todas as propriedades obrigatórias: " +
+                json.dumps(schema, ensure_ascii=False)})
+            retry = Request(request.full_url, data=json.dumps(body).encode("utf-8"), method="POST",
+                headers={"Content-Type": "application/json", "x-goog-api-key": key})
+            with urlopen(retry, timeout=25) as response:
+                result = json.loads(response.read(1_000_000).decode("utf-8"))
         content = result["candidates"][0]
         if content.get("finishReason") != "STOP":
             raise ValueError("incomplete")
@@ -101,7 +116,7 @@ def generate_assistance(mode, text, photo, candidates, model):
                     raise ValueError("invalid analysis text")
                 return [entry.strip()[:400] for entry in value[:limit] if entry.strip()]
 
-            assessments = answer.get("assessments", [])
+            assessments = answer["assessments"]
             if not isinstance(assessments, list):
                 raise ValueError("invalid assessments")
             reviewed = set()
@@ -116,8 +131,8 @@ def generate_assistance(mode, text, photo, candidates, model):
                 valid_assessments.append({"id": item_id, **{field: strings(assessment.get(field, []), 3)
                     for field in ("signals", "uncertainties", "questions")}})
             output.update({"assessments": valid_assessments,
-                "followUpQuestions": strings(answer.get("followUpQuestions", []), 3),
-                "searchPlan": strings(answer.get("searchPlan", []), 4)})
+                "followUpQuestions": strings(answer["followUpQuestions"], 3),
+                "searchPlan": strings(answer["searchPlan"], 4)})
         if mode == "draft":
             draft = answer.get("draft")
             if not isinstance(draft, dict) or draft.get("category") not in CATEGORIES or draft.get("kind") not in {"lost", "found"}:
@@ -133,6 +148,8 @@ def generate_assistance(mode, text, photo, candidates, model):
     except HTTPError as error:
         if error.code == 429:
             raise AIUnavailable("O limite de uso da IA foi atingido. Aguarde e tente novamente ou use a busca tradicional.") from None
+        if error.code == 400:
+            raise AIUnavailable("O provedor de IA rejeitou o formato desta análise. Tente um relato mais curto ou use o modo de rascunho.") from None
         raise AIUnavailable("A IA não conseguiu responder. O responsável deve verificar a chave e o modelo configurados no servidor.") from None
     except (URLError, OSError, TimeoutError):
         raise AIUnavailable("A IA está temporariamente indisponível. Tente novamente em instantes.") from None
